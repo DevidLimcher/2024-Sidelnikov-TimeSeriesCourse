@@ -4,7 +4,9 @@ import math
 import random
 
 
-def read_ts(file_path: str) -> np.ndarray:
+import pandas as pd
+
+def read_ts(file_path: str) -> pd.DataFrame:
     """
     Read time series
 
@@ -14,12 +16,14 @@ def read_ts(file_path: str) -> np.ndarray:
      
     Returns
     -------
-    ts: time series data
+    ts: time series data as pandas DataFrame
     """
 
-    ts = pd.read_csv(file_path, header=None, delim_whitespace=True)
-    
-    return ts.to_numpy()
+    ts = pd.read_csv(file_path, header=None, delim_whitespace=True)  # Чтение файла с пробелами как разделителями
+    return ts  # Возвращаем данные как DataFrame
+
+
+
 
 
 def z_normalize(ts: np.ndarray) -> np.ndarray:
@@ -35,9 +39,7 @@ def z_normalize(ts: np.ndarray) -> np.ndarray:
     -------
     norm_ts: z-normalized time series
     """
-
     norm_ts = (ts - np.mean(ts, axis=0)) / np.std(ts, axis=0)
-
     return norm_ts
 
 

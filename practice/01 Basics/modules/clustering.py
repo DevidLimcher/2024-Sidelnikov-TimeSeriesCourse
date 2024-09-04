@@ -66,7 +66,19 @@ class TimeSeriesHierarchicalClustering:
         self: the fitted model
         """
 
-       # INSERT YOUR CODE
+        # Инициализация модели AgglomerativeClustering
+        self.model = AgglomerativeClustering(
+            n_clusters=self.n_clusters,
+            metric='precomputed',  # Используем предвычисленную матрицу расстояний
+            linkage=self.method,
+            compute_distances=True  # Для построения дендрограммы
+        )
+
+        # Выполняем кластеризацию
+        self.model.fit(distance_matrix)
+
+        # Создаем матрицу связей (linkage matrix) для дендрограммы
+        self.linkage_matrix = self._create_linkage_matrix()
 
         return self
 
@@ -85,8 +97,7 @@ class TimeSeriesHierarchicalClustering:
         """
 
         self.fit(distance_matrix)
-
-        return self.labels_
+        return self.model.labels_
 
 
     def _draw_timeseries_allclust(self, dx: pd.DataFrame, labels: np.ndarray, leaves: list[int], gs: gridspec.GridSpec, ts_hspace: int) -> None:
@@ -116,7 +127,7 @@ class TimeSeriesHierarchicalClustering:
 
             # get leafnode name, which corresponds to original data index
             leafnode = leaves[cnt]
-            ts = dx[leafnode]
+            ts = dx.iloc[leafnode]  # Используем iloc для доступа по позиции
             ts_len = ts.shape[0] - 1
 
             label = int(labels[leafnode])

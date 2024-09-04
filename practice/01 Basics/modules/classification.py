@@ -29,7 +29,7 @@ class TimeSeriesKNN:
             self.metric_params.update(metric_params)
 
 
-    def fit(self, X_train: np.ndarray, Y_train: np.ndarray) -> Self:
+    def fit(self, X_train: np.ndarray, Y_train: np.ndarray) -> 'TimeSeriesKNN':
         """
         Fit the model using X_train as training data and Y_train as labels
 
@@ -63,10 +63,18 @@ class TimeSeriesKNN:
         dist: distance between the train and test samples
         """
 
-        dist = 0
-
-        # INSERT YOUR CODE
-
+        if self.metric == 'euclidean':
+            if self.metric_params['normalize']:
+                x_train = z_normalize(x_train)
+                x_test = z_normalize(x_test)
+            dist = ED_distance(x_train, x_test)
+        elif self.metric == 'dtw':
+            if self.metric_params['normalize']:
+                x_train = z_normalize(x_train)
+                x_test = z_normalize(x_test)
+            dist = DTW_distance(x_train, x_test, r=self.metric_params['r'])
+        else:
+            raise ValueError(f"Unknown metric: {self.metric}")
         return dist
 
 
@@ -83,10 +91,16 @@ class TimeSeriesKNN:
         neighbors: k nearest neighbors (distance between neighbor and test sample, neighbor label) for test sample
         """
 
-        neighbors = []
-
-        # INSERT YOUR CODE
-
+        distances = []
+        for i, x_train in enumerate(self.X_train):
+            dist = self._distance(x_train, x_test)
+            distances.append((dist, self.Y_train[i]))
+        
+        # Сортировка по расстоянию
+        distances.sort(key=lambda x: x[0])
+        
+        # Возвращаем k ближайших соседей
+        neighbors = distances[:self.n_neighbors]
         return neighbors
 
 
@@ -104,9 +118,13 @@ class TimeSeriesKNN:
         """
 
         y_pred = []
-
-        # INSERT YOUR CODE
-
+        for x_test in X_test:
+            neighbors = self._find_neighbors(x_test)
+            # Получаем классы ближайших соседей
+            neighbor_labels = [label for _, label in neighbors]
+            # Прогнозируем класс как наиболее часто встречающийся среди соседей
+            pred_label = max(set(neighbor_labels), key=neighbor_labels.count)
+            y_pred.append(pred_label)
         return np.array(y_pred)
 
 

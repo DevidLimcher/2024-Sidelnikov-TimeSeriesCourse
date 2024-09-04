@@ -24,7 +24,6 @@ def ED_distance(ts1: np.ndarray, ts2: np.ndarray) -> float:
 
     return ed_dist
 
-
 def norm_ED_distance(ts1: np.ndarray, ts2: np.ndarray) -> float:
     """
     Calculate the normalized Euclidean distance
@@ -36,12 +35,28 @@ def norm_ED_distance(ts1: np.ndarray, ts2: np.ndarray) -> float:
 
     Returns
     -------
-    norm_ed_dist: normalized Euclidean distance between ts1 and ts2s
+    norm_ed_dist: normalized Euclidean distance between ts1 and ts2
     """
 
-    norm_ed_dist = 0
+    # Сначала убедимся, что длины временных рядов совпадают
+    if len(ts1) != len(ts2):
+        raise ValueError("The two time series must have the same length")
+    
+    n = len(ts1)  # Длина временных рядов
 
-    # INSERT YOUR CODE
+    # Вычисляем средние значения и стандартные отклонения
+    mu_T1, mu_T2 = np.mean(ts1), np.mean(ts2)
+    sigma_T1, sigma_T2 = np.std(ts1), np.std(ts2)
+
+    # Проверим на нулевые стандартные отклонения
+    if sigma_T1 == 0 or sigma_T2 == 0:
+        raise ValueError("Standard deviation of one of the time series is zero")
+
+    # Вычисляем скалярное произведение
+    dot_product = np.dot(ts1, ts2)
+
+    # Формула для нормализованного евклидова расстояния
+    norm_ed_dist = np.sqrt(abs(2 * n * (1 - (dot_product - n * mu_T1 * mu_T2) / (n * sigma_T1 * sigma_T2))))
 
     return norm_ed_dist
 
