@@ -84,21 +84,20 @@ def random_walk(n: int) -> np.ndarray:
     random_walk_ts: generated time series
     """
 
-    value = 0
+    value = 0  # Инициализируем начальное значение для случайного блуждания
 
-    random_walk_ts = [value]
-    directions = ["UP", "DOWN"]
+    random_walk_ts = [value]  # Создаем список для хранения временного ряда случайного блуждания, начиная с начального значения
+    directions = ["UP", "DOWN"]  # Возможные направления: вверх или вниз
 
-    for i in range(1, n):
-        # Randomly select either UP or DOWN
-        step = random.choice(directions)
+    for i in range(1, n):  # Цикл от 1 до n (n - длина временного ряда)
+        
+        step = random.choice(directions)  # Случайным образом выбираем направление (вверх или вниз)
 
-        # Move the object up or down
-        if step == "UP":
-            value += 1
-        elif step == "DOWN":
-            value -= 1
+        if step == "UP":  # Если выбрано направление вверх
+            value += 1  # Увеличиваем значение на 1
+        elif step == "DOWN":  # Если выбрано направление вниз
+            value -= 1  # Уменьшаем значение на 1
 
-        random_walk_ts.append(value)
+        random_walk_ts.append(value)  # Добавляем текущее значение в список временного ряда
 
-    return np.array(random_walk_ts)
+    return np.array(random_walk_ts)  # Преобразуем список в numpy массив и возвращаем результат
