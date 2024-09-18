@@ -51,10 +51,10 @@ def plot_ts_set(ts_set: np.ndarray, title: str = 'Input Time Series Set') -> Non
                       legend=dict(font=dict(size=20, color='black'))
                       )
 
-    fig.show(renderer="colab")
+    fig.show(renderer="notebook")
 
 
-def mplot2d(x: np.ndarrray, y: np.ndarrray, plot_title: str = None, x_title: str = None, y_title: str = None, trace_titles: np.ndarray = None) -> None:
+def mplot2d(x: np.ndarray, y: np.ndarray, plot_title: str = None, x_title: str = None, y_title: str = None, trace_titles: np.ndarray = None) -> None:
     """
     Multiple 2D Plots on figure for different experiments
 
@@ -93,17 +93,17 @@ def mplot2d(x: np.ndarrray, y: np.ndarrray, plot_title: str = None, x_title: str
                      tickwidth=2)
     fig.update_layout(title={'text': plot_title, 'x': 0.5, 'xanchor': 'center'},
                       title_font=dict(size=24, color='black'),
-                      plot_bgcolor='rgba(0,0,0,0)',
-                      paper_bgcolor='rgba(0,0,0,0)',
+                      plot_bgcolor='white',
+                      paper_bgcolor='white',
                       legend=dict(font=dict(size=20, color='black')),
                       width=1000,
                       height=600
                       )
 
-    fig.show(renderer="colab")
+    fig.show(renderer="notebook")
 
 
-def plot_bestmatch_data(ts: np.ndarrray, query: np.ndarray) -> None:
+def plot_bestmatch_data(ts: np.ndarray, query: np.ndarray) -> None:
     """
     Visualize the input data (time series and query) for the best match task
 
@@ -141,15 +141,15 @@ def plot_bestmatch_data(ts: np.ndarrray, query: np.ndarray) -> None:
                      tickwidth=1,
                      mirror=True)
 
-    fig.update_layout(plot_bgcolor="rgba(0,0,0,0)",
-                      paper_bgcolor='rgba(0,0,0,0)',
+    fig.update_layout(plot_bgcolor="white",
+                      paper_bgcolor='white',
                       showlegend=False,
                       title_x=0.5)
 
-    fig.show(renderer="colab")
+    fig.show(renderer="notebook")
 
 
-def plot_bestmatch_results(ts: np.ndarrray, query: np.ndarrray, bestmatch_results: dict) -> None:
+def plot_bestmatch_results(ts: np.ndarray, query: np.ndarray, bestmatch_results: dict) -> None:
     """
     Visualize the best match results
 
@@ -160,10 +160,47 @@ def plot_bestmatch_results(ts: np.ndarrray, query: np.ndarrray, bestmatch_result
     bestmatch_results: output data found by the best match algorithm
     """
 
-    # INSERT YOUR CODE
+    query_len = query.shape[0]  # Длина запроса
+    ts_len = ts.shape[0]  # Длина временного ряда
+
+    # Создание фигуры с двумя подграфиками: один для запроса, другой для временного ряда
+    fig = make_subplots(rows=1, cols=2, column_widths=[0.1, 0.9], subplot_titles=("Запрос", "Временной ряд"), horizontal_spacing=0.04)
+
+    # Отрисовка графика запроса
+    fig.add_trace(go.Scatter(x=np.arange(query_len), y=query, line=dict(color=px.colors.qualitative.Plotly[1])),
+                  row=1, col=1)
+
+    # Отрисовка графика временного ряда
+    fig.add_trace(go.Scatter(x=np.arange(ts_len), y=ts, line=dict(color=px.colors.qualitative.Plotly[0])),
+                  row=1, col=2)
+
+    # Получение индексов наилучших совпадений из результатов поиска
+    indices = bestmatch_results['indices']  # Достаем индексы совпадений из словаря
+
+    # Подсветка topK совпадающих подпоследовательностей во временном ряду
+    for idx in indices:
+        fig.add_trace(go.Scatter(x=np.arange(idx, idx + query_len), y=ts[idx:idx + query_len],
+                                 line=dict(color=px.colors.qualitative.Plotly[1], width=2)),
+                      row=1, col=2)
+
+    # Обновление параметров аннотаций для улучшения визуализации
+    fig.update_annotations(font=dict(size=24, color='black'))
+
+    # Настройки осей X
+    fig.update_xaxes(showgrid=False, linecolor='#000', ticks="outside", tickfont=dict(size=18, color='black'), linewidth=1, tickwidth=1, mirror=True)
+
+    # Настройки осей Y
+    fig.update_yaxes(showgrid=False, linecolor='#000', ticks="outside", tickfont=dict(size=18, color='black'), zeroline=False, linewidth=1, tickwidth=1, mirror=True)
+
+    # Общие настройки дизайна графика
+    fig.update_layout(plot_bgcolor="white", paper_bgcolor='white', showlegend=False, title_x=0.5)
+
+    # Отображение графика
+    fig.show(renderer="notebook")
 
 
-def pie_chart(labels: np.ndarrray, values: np.ndarrray, plot_title='Pie chart') -> None:
+
+def pie_chart(labels: np.ndarray, values: np.ndarray, plot_title='Pie chart') -> None:
     """
     Build the pie chart
 
@@ -183,4 +220,4 @@ def pie_chart(labels: np.ndarrray, values: np.ndarrray, plot_title='Pie chart') 
                       height=500
                       )
 
-    fig.show(renderer="colab")
+    fig.show(renderer="notebook")

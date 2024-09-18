@@ -44,27 +44,18 @@ def topK_match(dist_profile: np.ndarray, excl_zone: int, topK: int = 3, max_dist
     topK_match_results: dictionary containing results of algorithm
     """
 
-    topK_match_results = {
-        'indices': [],
-        'distances': []
-    } 
+    candidates = np.argsort(dist_profile)  # Получить индексы, сортированные по возрастанию расстояния
+    results = {'indices': [], 'distances': []}  # Инициализация словаря для результатов
 
-    dist_profile_len = len(dist_profile)
-    dist_profile = np.copy(dist_profile).astype(float)
-
-    for k in range(topK):
-        min_idx = np.argmin(dist_profile)
-        min_dist = dist_profile[min_idx]
-
-        if (np.isnan(min_dist)) or (np.isinf(min_dist)) or (min_dist > max_distance):
+    for idx in candidates:  # Перебор кандидатов
+        if len(results['indices']) >= topK:  # Если найдено достаточно подпоследовательностей, прервать цикл
             break
+        # Проверка, что текущий индекс не в зоне исключения относительно уже найденных индексов
+        if all(abs(idx - x) > excl_zone for x in results['indices']):  
+            results['indices'].append(idx)  # Добавить индекс в результаты
+            results['distances'].append(dist_profile[idx])  # Добавить соответствующее расстояние в результаты
 
-        dist_profile = apply_exclusion_zone(dist_profile, min_idx, excl_zone)
-
-        topK_match_results['indices'].append(min_idx)
-        topK_match_results['distances'].append(min_dist)
-
-    return topK_match_results
+    return results  # Вернуть результаты
 
 
 class BestMatchFinder:
