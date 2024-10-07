@@ -1,6 +1,6 @@
 import numpy as np
 
-from modules.utils import z_normalize
+from modules.my_utils import z_normalize
 from modules.metrics import ED_distance, norm_ED_distance
 
 

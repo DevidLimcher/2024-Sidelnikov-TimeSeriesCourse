@@ -2,7 +2,7 @@ import numpy as np
 import math
 import copy
 
-from modules.utils import sliding_window, z_normalize
+from modules.my_utils import sliding_window, z_normalize
 from modules.metrics import DTW_distance
 
 
@@ -176,7 +176,7 @@ class UCR_DTW(BestMatchFinder):
 
     def _LB_Kim(self, subs1: np.ndarray, subs2: np.ndarray) -> float:
         """
-        Compute LB_Kim lower bound between two subsequences
+        Compute LB_Kim lower bound between two subsequences.
         
         Parameters
         ----------
@@ -189,15 +189,21 @@ class UCR_DTW(BestMatchFinder):
         """
 
         lb_Kim = 0
-        
-        # INSERT YOUR CODE
 
-        return lb_Kim
+        # Рассчитываем дистанцию Евклида для первой и последней точки последовательности
+        lb_Kim += (subs1[0] - subs2[0])**2
+        lb_Kim += (subs1[-1] - subs2[-1])**2
+        
+        # Проверяем также середину последовательности
+        lb_Kim += (subs1[len(subs1) // 2] - subs2[len(subs2) // 2])**2
+    
+        return np.sqrt(lb_Kim)
+
 
 
     def _LB_Keogh(self, subs1: np.ndarray, subs2: np.ndarray, r: float) -> float:
         """
-        Compute LB_Keogh lower bound between two subsequences
+        Compute LB_Keogh lower bound between two subsequences.
         
         Parameters
         ----------
@@ -211,11 +217,25 @@ class UCR_DTW(BestMatchFinder):
         """
 
         lb_Keogh = 0
+        m = len(subs1)
+        
+        # Верхняя и нижняя границы для warping window, преобразуем генераторы в списки
+        upper_bound = [np.max(subs2[max(0, i - int(r)): min(m, i + int(r) + 1)]) for i in range(m)]
+        lower_bound = [np.min(subs2[max(0, i - int(r)): min(m, i + int(r) + 1)]) for i in range(m)]
 
-        # INSERT YOUR CODE
+        for i in range(m):
+            if subs1[i] > upper_bound[i]:
+                lb_Keogh += (subs1[i] - upper_bound[i]) ** 2
+            elif subs1[i] < lower_bound[i]:
+                lb_Keogh += (subs1[i] - lower_bound[i]) ** 2
+        
+        return np.sqrt(lb_Keogh)
 
-        return lb_Keogh
 
+    def _LB_Keogh_EC(self, query: np.ndarray, subsequence: np.ndarray, r: float) -> float:
+        """ Compute LB_KeoghEC as the reverse version of LB_KeoghEQ """
+        return self._LB_Keogh(subsequence, query, r)
+    
 
     def get_statistics(self) -> dict:
         """
@@ -238,34 +258,93 @@ class UCR_DTW(BestMatchFinder):
 
     def perform(self, ts_data: np.ndarray, query: np.ndarray) -> dict:
         """
-        Search subsequences in a time series that most closely match the query using UCR-DTW algorithm
+        Поиск подпоследовательностей временного ряда, наиболее похожих на запрос, с использованием UCR-DTW.
         
-        Parameters
+        Параметры
         ----------
-        ts_data: time series
-        query: query, shorter than time series
+        ts_data: np.ndarray
+            Временной ряд.
+        query: np.ndarray
+            Запрос, короче чем временной ряд.
 
-        Returns
+        Возвращает
         -------
-        best_match: dictionary containing results of UCR-DTW algorithm
+        dict
+            Словарь, содержащий результаты выполнения алгоритма UCR-DTW.
         """
-
+        # Копируем запрос, чтобы не изменять исходный
         query = copy.deepcopy(query)
-        if (len(ts_data.shape) != 2): # time series set
-            ts_data = sliding_window(ts_data, len(query))
+        
+        # Если требуется нормализация, нормализуем запрос
+        if self.is_normalize:
+            query = z_normalize(query)
 
-        N, m = ts_data.shape
+        n = len(ts_data)  # длина временного ряда
+        m = len(query)    # длина запроса
 
+        # Исключаемая зона (exclusion zone)
         excl_zone = self._calculate_excl_zone(m)
 
-        dist_profile = np.ones((N,))*np.inf
+        # Инициализация профиля дистанций
+        dist_profile = np.ones(n - m + 1) * np.inf
         bsf = np.inf
-        
         bestmatch = {
-            'index' : [],
-            'distance' : []
+            'indices': [],  # индексы совпадений
+            'distances': []  # дистанции совпадений
         }
 
-        # INSERT YOUR CODE
+        # Перебираем все подпоследовательности временного ряда
+        for i in range(n - m + 1):
+            subsequence = ts_data[i:i + m]  # выделяем подпоследовательность длины m
+
+            # Если требуется нормализация, нормализуем подпоследовательность
+            if self.is_normalize:
+                subsequence = z_normalize(subsequence)
+
+            # Применяем LB_Kim для быстрой оценки
+            lb_Kim_dist = self._LB_Kim(query, subsequence)
+
+            if lb_Kim_dist >= bsf:
+                # Отсечено по LB_Kim
+                self.lb_Kim_num += 1
+                continue
+
+            # Если не отсечено по LB_Kim, проверяем LB_Keogh
+            lb_Keogh_dist = self._LB_Keogh(query, subsequence, self.r)
+
+            if lb_Keogh_dist >= bsf:
+                # Отсечено по LB_KeoghEQ
+                self.lb_KeoghQC_num += 1
+                continue
+
+            # Если не отсечено по LB_Keogh, проверяем LB_KeoghEC
+            lb_Keogh_EC_dist = self._LB_Keogh_EC(query, subsequence, self.r)
+
+            if lb_Keogh_EC_dist >= bsf:
+                # Отсечено по LB_KeoghEC
+                self.lb_KeoghCQ_num += 1
+                continue
+
+            # Если все нижние границы пройдены, вычисляем DTW
+            dist = DTW_distance(query, subsequence)
+
+            if dist < bsf:
+                dist_profile[i] = dist
+                bestmatch['indices'].append(i)  # добавляем индекс совпадения
+                bestmatch['distances'].append(dist)  # добавляем дистанцию совпадения
+
+                # Если найдено topK совпадений, обновляем порог
+                if len(bestmatch['indices']) >= self.topK:
+                    bsf = max(bestmatch['distances'])
+                    bestmatch = topK_match(dist_profile, self.topK, bsf)
+
+        # Подсчитываем количество неотброшенных последовательностей
+        self.not_pruned_num = n - m + 1 - (self.lb_Kim_num + self.lb_KeoghQC_num + self.lb_KeoghCQ_num)
 
         return bestmatch
+
+
+
+
+
+

@@ -4,6 +4,7 @@ import math
 import random
 
 
+
 def read_ts(file_path: str) -> np.ndarray:
     """
     Read time series
