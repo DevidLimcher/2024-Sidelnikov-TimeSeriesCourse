@@ -131,23 +131,40 @@ class NaiveBestMatchFinder(BestMatchFinder):
         """
 
         query = copy.deepcopy(query)
-        if (len(ts_data.shape) != 2): # time series set
+        if len(ts_data.shape) != 2:  # time series set
             ts_data = sliding_window(ts_data, len(query))
 
         N, m = ts_data.shape
         excl_zone = self._calculate_excl_zone(m)
 
-        dist_profile = np.ones((N,))*np.inf
+        dist_profile = np.ones((N,)) * np.inf
         bsf = np.inf
 
         bestmatch = {
-            'index' : [],
-            'distance' : []
+            'indices': [],  # Убедитесь, что ключ 'indices' существует
+            'distances': []  # Убедитесь, что ключ 'distances' существует
         }
-        
-        # INSERT YOUR CODE
 
-        return bestmatch
+        for i in range(N):
+            subsequence = ts_data[i]
+
+            if self.is_normalize:
+                subsequence = z_normalize(subsequence)
+
+            # Расчет расстояния (пример: DTW или другое)
+            dist = DTW_distance(query, subsequence)
+
+            if dist < bsf:
+                dist_profile[i] = dist
+                bestmatch['indices'].append(i)  # Заполняем индексы
+                bestmatch['distances'].append(dist)  # Заполняем расстояния
+
+                if len(bestmatch['indices']) >= self.topK:
+                    bsf = max(bestmatch['distances'])
+                    bestmatch = topK_match(dist_profile, self._calculate_excl_zone(len(query)), self.topK)
+
+        return bestmatch  # Возвращаем структуру с 'indices' и 'distances'
+
 
 
 class UCR_DTW(BestMatchFinder):
