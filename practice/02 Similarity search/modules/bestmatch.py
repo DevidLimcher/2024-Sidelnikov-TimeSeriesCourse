@@ -218,7 +218,7 @@ class UCR_DTW(BestMatchFinder):
 
 
 
-    def _LB_Keogh(self, subs1: np.ndarray, subs2: np.ndarray, r: float) -> float:
+    def _LB_Keogh(self, subs1: np.ndarray, subs2: np.ndarray, r: float, n: int) -> float:
         """
         Compute LB_Keogh lower bound between two subsequences.
         
@@ -227,7 +227,8 @@ class UCR_DTW(BestMatchFinder):
         subs1: the first subsequence
         subs2: the second subsequence
         r: warping window size
-        
+        n: length of the second subsequence (ts_data)
+
         Returns
         -------
         lb_Keogh: LB_Keogh lower bound
@@ -237,8 +238,8 @@ class UCR_DTW(BestMatchFinder):
         m = len(subs1)
         
         # Верхняя и нижняя границы для warping window, преобразуем генераторы в списки
-        upper_bound = [np.max(subs2[max(0, i - int(r)): min(m, i + int(r) + 1)]) for i in range(m)]
-        lower_bound = [np.min(subs2[max(0, i - int(r)): min(m, i + int(r) + 1)]) for i in range(m)]
+        upper_bound = [np.max(subs2[max(0, i - int(r)): min(n, i + int(r) + 1)]) for i in range(m)]
+        lower_bound = [np.min(subs2[max(0, i - int(r)): min(n, i + int(r) + 1)]) for i in range(m)]
 
         for i in range(m):
             if subs1[i] > upper_bound[i]:
@@ -249,9 +250,11 @@ class UCR_DTW(BestMatchFinder):
         return np.sqrt(lb_Keogh)
 
 
-    def _LB_Keogh_EC(self, query: np.ndarray, subsequence: np.ndarray, r: float) -> float:
+
+    def _LB_Keogh_EC(self, query: np.ndarray, subsequence: np.ndarray, r: float, n: int) -> float:
         """ Compute LB_KeoghEC as the reverse version of LB_KeoghEQ """
-        return self._LB_Keogh(subsequence, query, r)
+        return self._LB_Keogh(subsequence, query, r, n)  # Передаем n
+
     
 
     def get_statistics(self) -> dict:
@@ -271,6 +274,10 @@ class UCR_DTW(BestMatchFinder):
         }
 
         return statistics
+
+
+    def _LB_Keogh_EC(self, query: np.ndarray, subsequence: np.ndarray, r: float, n: int) -> float:
+        return self._LB_Keogh(subsequence, query, r, n)  # Передаем n
 
 
     def perform(self, ts_data: np.ndarray, query: np.ndarray) -> dict:
@@ -303,7 +310,7 @@ class UCR_DTW(BestMatchFinder):
         excl_zone = self._calculate_excl_zone(m)
 
         # Инициализация профиля дистанций
-        dist_profile = np.ones(n - m + 1) * np.inf
+        dist_profile = np.full(n - m + 1, np.inf)
         bsf = np.inf
         bestmatch = {
             'indices': [],  # индексы совпадений
@@ -320,35 +327,35 @@ class UCR_DTW(BestMatchFinder):
 
             # Применяем LB_Kim для быстрой оценки
             lb_Kim_dist = self._LB_Kim(query, subsequence)
-
             if lb_Kim_dist >= bsf:
-                # Отсечено по LB_Kim
                 self.lb_Kim_num += 1
-                continue
+                continue  # Пропускаем, если LB_Kim отсечен
 
-            # Если не отсечено по LB_Kim, проверяем LB_Keogh
-            lb_Keogh_dist = self._LB_Keogh(query, subsequence, self.r)
-
+            # Проверяем LB_Keogh
+            lb_Keogh_dist = self._LB_Keogh(query, subsequence, self.r, n)
             if lb_Keogh_dist >= bsf:
-                # Отсечено по LB_KeoghEQ
                 self.lb_KeoghQC_num += 1
-                continue
+                continue  # Пропускаем, если LB_Keogh отсечен
 
-            # Если не отсечено по LB_Keogh, проверяем LB_KeoghEC
-            lb_Keogh_EC_dist = self._LB_Keogh_EC(query, subsequence, self.r)
-
+            # Проверяем LB_KeoghEC
+            lb_Keogh_EC_dist = self._LB_Keogh_EC(query, subsequence, self.r, n)
             if lb_Keogh_EC_dist >= bsf:
-                # Отсечено по LB_KeoghEC
                 self.lb_KeoghCQ_num += 1
-                continue
+                continue  # Пропускаем, если LB_KeoghEC отсечен
 
-            # Если все нижние границы пройдены, вычисляем DTW
+            # Вычисляем DTW
             dist = DTW_distance(query, subsequence)
 
+            # Проверка на inf
+            if np.isinf(dist):
+                print(f"Distance calculation resulted in inf for subsequence starting at index {i}. Ignoring this subsequence.")
+                continue  # Пропускаем, если расстояние равно inf
+
+            # Если расстояние меньше текущего лучшего значения, обновляем
             if dist < bsf:
                 dist_profile[i] = dist
-                bestmatch['indices'].append(i)  # добавляем индекс совпадения
-                bestmatch['distances'].append(dist)  # добавляем дистанцию совпадения
+                bestmatch['indices'].append(i)
+                bestmatch['distances'].append(dist)
 
                 # Если найдено topK совпадений, обновляем порог
                 if len(bestmatch['indices']) >= self.topK:
@@ -359,6 +366,11 @@ class UCR_DTW(BestMatchFinder):
         self.not_pruned_num = n - m + 1 - (self.lb_Kim_num + self.lb_KeoghQC_num + self.lb_KeoghCQ_num)
 
         return bestmatch
+
+
+
+
+
 
 
 
