@@ -3,7 +3,7 @@ import numpy as np
 
 def ED_distance(ts1: np.ndarray, ts2: np.ndarray) -> float:
     """
-    Calculate the Euclidean distance
+    Calculate the Euclidean distance between two time series
 
     Parameters
     ----------
@@ -12,19 +12,23 @@ def ED_distance(ts1: np.ndarray, ts2: np.ndarray) -> float:
 
     Returns
     -------
-    ed_dist: euclidean distance between ts1 and ts2
+    ed_dist: Euclidean distance between ts1 and ts2
     """
+
+    # Ensure both series are the same length
+    if len(ts1) != len(ts2):
+        raise ValueError("Time series must be of the same length to compute Euclidean distance.")
     
-    ed_dist = 0
-
-    # INSERT YOUR CODE
-
+    # Compute the Euclidean distance
+    ed_dist = np.sqrt(np.sum((ts1 - ts2) ** 2))
+    
     return ed_dist
+
 
 
 def norm_ED_distance(ts1: np.ndarray, ts2: np.ndarray) -> float:
     """
-    Calculate the normalized Euclidean distance
+    Calculate the normalized Euclidean distance between two time series
 
     Parameters
     ----------
@@ -33,14 +37,22 @@ def norm_ED_distance(ts1: np.ndarray, ts2: np.ndarray) -> float:
 
     Returns
     -------
-    norm_ed_dist: normalized Euclidean distance between ts1 and ts2s
+    norm_ed_dist: normalized Euclidean distance between ts1 and ts2
     """
+    
+    # Ensure both series are the same length
+    if len(ts1) != len(ts2):
+        raise ValueError("Time series must be of the same length to compute normalized Euclidean distance.")
+    
+    # Z-normalize both series
+    ts1_norm = (ts1 - np.mean(ts1)) / np.std(ts1)
+    ts2_norm = (ts2 - np.mean(ts2)) / np.std(ts2)
 
-    norm_ed_dist = 0
-
-    # INSERT YOUR CODE
-
+    # Compute Euclidean distance for normalized series
+    norm_ed_dist = np.sqrt(np.sum((ts1_norm - ts2_norm) ** 2))
+    
     return norm_ed_dist
+
 
 
 def DTW_distance(ts1: np.ndarray, ts2: np.ndarray, r: float = 1) -> float:
@@ -51,14 +63,18 @@ def DTW_distance(ts1: np.ndarray, ts2: np.ndarray, r: float = 1) -> float:
     ----------
     ts1: first time series
     ts2: second time series
-    r: warping window size
+    r: warping window size (should be <= min(len(ts1), len(ts2)))
     
     Returns
     -------
     dtw_dist: DTW distance between ts1 and ts2
     """
-
+    
     n, m = len(ts1), len(ts2)
+    
+    # Check if the warping window is valid
+    r = max(1, min(r, max(n, m)))  # Ensure r is in a valid range
+    
     dtw_matrix = np.full((n+1, m+1), np.inf)
     dtw_matrix[0, 0] = 0
     
@@ -72,4 +88,5 @@ def DTW_distance(ts1: np.ndarray, ts2: np.ndarray, r: float = 1) -> float:
             )
 
     return np.sqrt(dtw_matrix[n, m])  # Корень из итогового значения
+
 

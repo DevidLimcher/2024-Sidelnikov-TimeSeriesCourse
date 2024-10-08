@@ -26,20 +26,29 @@ def read_ts(file_path: str) -> np.ndarray:
 def z_normalize(ts: np.ndarray) -> np.ndarray:
     """
     Calculate the z-normalized time series by subtracting the mean and
-    dividing by the standard deviation along a given axis
+    dividing by the standard deviation along a given axis.
 
     Parameters
     ----------
-    ts: time series
+    ts: time series (numpy array)
     
     Returns
     -------
     norm_ts: z-normalized time series
     """
 
-    norm_ts = (ts - np.mean(ts, axis=0)) / np.std(ts, axis=0)
+    mean_ts = np.mean(ts, axis=0)
+    std_ts = np.std(ts, axis=0)
+
+    # Avoid division by zero by checking for zero standard deviation
+    if std_ts == 0:
+        print("Standard deviation is zero. Returning the original time series without normalization.")
+        return ts
+    
+    norm_ts = (ts - mean_ts) / std_ts
 
     return norm_ts
+
 
 
 def sliding_window(ts: np.ndarray, window: int, step: int = 1) -> np.ndarray:
