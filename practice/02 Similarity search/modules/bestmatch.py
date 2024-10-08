@@ -108,29 +108,28 @@ class NaiveBestMatchFinder(BestMatchFinder):
     """
     Naive Best Match Finder
     """
-    def __init__(self, excl_zone_frac: float, topK: int, is_normalize: bool, r: float):
-        """
-        Constructor of class NaiveBestMatchFinder with user-defined parameters
 
+    def __init__(self, excl_zone_frac: float = 1, topK: int = 3, is_normalize: bool = True, r: float = 0.05):
+        super().__init__(excl_zone_frac, topK, is_normalize, r)
+
+    # Вставляем сюда
+    def _calculate_excl_zone(self, m: int) -> int:
+        """
+        Calculate the exclusion zone based on the length of the query and exclusion fraction.
+        
         Parameters
         ----------
-        excl_zone_frac: float
-            Доля от длины подпоследовательностей, которая исключается при поиске.
-        topK: int
-            Количество наиболее похожих подпоследовательностей.
-        is_normalize: bool
-            Флаг, указывающий на необходимость нормализации.
-        r: float
-            Ширина полосы Сако-Чиба (размер окна искажения).
+        m: length of the query (subsequence)
+        
+        Returns
+        -------
+        excl_zone: the size of the exclusion zone
         """
-        super().__init__(excl_zone_frac, topK, is_normalize, r)
-        # Инициализация дополнительных параметров не требуется, если они передаются извне
-
-
+        return int(m * self.excl_zone_frac)
 
     def perform(self, ts_data: np.ndarray, query: np.ndarray) -> dict:
         """
-        Search subsequences in a time series that most closely match the query using the naive algorithm
+        Search subsequences in a time series that most closely match the query using the naive algorithm.
         
         Parameters
         ----------
@@ -139,59 +138,42 @@ class NaiveBestMatchFinder(BestMatchFinder):
 
         Returns
         -------
-        best_match: dictionary containing results of the naive algorithm
+        best_match: dictionary containing results of the naive algorithm.
         """
 
         query = copy.deepcopy(query)
-        
-        # Нормализация запроса, если это необходимо
-        if self.is_normalize:
-            query = z_normalize(query)
+        if len(ts_data.shape) != 2:  # time series set
+            ts_data = sliding_window(ts_data, len(query))
 
-        N = len(ts_data)  # длина временного ряда
-        m = len(query)    # длина запроса
-        excl_zone = int(self.excl_zone_frac * m)  # Вычисляем зону исключения (в целых числах)
-        
-        # Инициализация профиля дистанций
-        dist_profile = np.ones((N - m + 1,)) * np.inf
-        bsf = np.inf  # Лучший на данный момент результат (best-so-far)
+        N, m = ts_data.shape
+        excl_zone = self._calculate_excl_zone(m)  # Здесь вызываем функцию
 
-        # Инициализация структуры для хранения лучших совпадений
+        dist_profile = np.ones((N,)) * np.inf
+        bsf = np.inf
+
         bestmatch = {
             'indices': [],
             'distances': []
         }
 
-        # Основной цикл по подпоследовательностям
-        for i in range(N - m + 1):
-            # Проверка на зону исключения
-            if len(bestmatch['indices']) > 0 and abs(i - bestmatch['indices'][-1]) < excl_zone:
-                continue  # Пропускаем последовательности в зоне исключения
+        for i in range(N):
+            subsequence = ts_data[i]
 
-            # Извлечение подпоследовательности
-            subsequence = ts_data[i:i + m]
-
-            # Нормализация подпоследовательности, если это необходимо
             if self.is_normalize:
                 subsequence = z_normalize(subsequence)
 
-            # Вычисление расстояния DTW
             dist = DTW_distance(query, subsequence)
 
-            # Обновление профиля дистанций и списка лучших совпадений
             if dist < bsf:
                 dist_profile[i] = dist
                 bestmatch['indices'].append(i)
                 bestmatch['distances'].append(dist)
 
-                # Проверка на топ-K совпадений
                 if len(bestmatch['indices']) >= self.topK:
-                    bsf = max(bestmatch['distances'])  # Обновляем порог
-                    bestmatch = topK_match(dist_profile, self.topK, bsf)  # Обновляем список совпадений
+                    bsf = max(bestmatch['distances'])
+                    bestmatch = topK_match(dist_profile, excl_zone, self.topK)
 
-        return bestmatch  # Возвращаем лучшие совпадения
-
-
+        return bestmatch
 
 
 
