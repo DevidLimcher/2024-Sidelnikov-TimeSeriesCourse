@@ -104,75 +104,67 @@ class BestMatchFinder:
         raise NotImplementedError
 
 
-class NaiveBestMatchFinder(BestMatchFinder):
-    """
-    Naive Best Match Finder
-    """
-
-    def __init__(self, excl_zone_frac: float = 1, topK: int = 3, is_normalize: bool = True, r: float = 0.05):
-        super().__init__(excl_zone_frac, topK, is_normalize, r)
-
-    # Вставляем сюда
-    def _calculate_excl_zone(self, m: int) -> int:
-        """
-        Calculate the exclusion zone based on the length of the query and exclusion fraction.
-        
-        Parameters
-        ----------
-        m: length of the query (subsequence)
-        
-        Returns
-        -------
-        excl_zone: the size of the exclusion zone
-        """
-        return int(m * self.excl_zone_frac)
-
-    def perform(self, ts_data: np.ndarray, query: np.ndarray) -> dict:
-        """
-        Search subsequences in a time series that most closely match the query using the naive algorithm.
-        
-        Parameters
-        ----------
-        ts_data: time series
-        query: query, shorter than time series
-
-        Returns
-        -------
-        best_match: dictionary containing results of the naive algorithm.
-        """
-
-        query = copy.deepcopy(query)
-        if len(ts_data.shape) != 2:  # time series set
-            ts_data = sliding_window(ts_data, len(query))
-
-        N, m = ts_data.shape
-        excl_zone = self._calculate_excl_zone(m)  # Здесь вызываем функцию
-
-        dist_profile = np.ones((N,)) * np.inf
-        bsf = np.inf
-
-        bestmatch = {
-            'indices': [],
-            'distances': []
-        }
-
-        for i in range(N):
-            subsequence = ts_data[i]
-
-            if self.is_normalize:
-                subsequence = z_normalize(subsequence)
-
-            dist = DTW_distance(query, subsequence)
-
-            if dist < bsf:
-                dist_profile[i] = dist
-                bestmatch['indices'].append(i)
-                bestmatch['distances'].append(dist)
-
-                if len(bestmatch['indices']) >= self.topK:
-                    bsf = max(bestmatch['distances'])
-                    bestmatch = topK_match(dist_profile, excl_zone, self.topK)
-
+class NaiveBestMatchFinder(BestMatchFinder): 
+    """ 
+    Naive Best Match Finder 
+    """ 
+ 
+    def __init__(self, excl_zone_frac: float = 1, topK: int = 3, is_normalize: bool = True, r: float = 0.05): 
+        super().__init__(excl_zone_frac, topK, is_normalize, r) 
+        """  
+        Constructor of class NaiveBestMatchFinder 
+        """ 
+ 
+ 
+    def perform(self, ts_data: np.ndarray, query: np.ndarray) -> dict: 
+        """ 
+        Search subsequences in a time series that most closely match the query using the naive algorithm 
+         
+        Parameters 
+        ---------- 
+        ts_data: time series 
+        query: query, shorter than time series 
+ 
+        Returns 
+        ------- 
+        best_match: dictionary containing results of the naive algorithm 
+        """ 
+ 
+        query = copy.deepcopy(query) 
+        if (len(ts_data.shape) != 2): # time series set 
+            ts_data = sliding_window(ts_data, len(query)) 
+ 
+        N, m = ts_data.shape 
+        excl_zone = self._calculate_excl_zone(m) 
+ 
+        dist_profile = np.ones((N,))*np.inf 
+        bsf = np.inf 
+ 
+        bestmatch = { 
+            'indices' : [], 
+            'distance' : [] 
+        } 
+         
+        # Normalize query if needed 
+        if self.is_normalize: 
+            query = z_normalize(query) 
+ 
+        # Compute distance profile for each subsequence 
+        for i in range(N): 
+            subsequence = ts_data[i] 
+            if self.is_normalize: 
+                subsequence = z_normalize(subsequence) 
+            distance = DTW_distance(subsequence, query, r=self.r) 
+            dist_profile[i] = distance 
+ 
+        # Find topK matches 
+        topK_results = topK_match(dist_profile, excl_zone, self.topK, max_distance=bsf) 
+ 
+        bestmatch['indices'] = topK_results['indices'] 
+        bestmatch['distance'] = topK_results['distances'] 
+ 
+ 
+ 
         return bestmatch
 
 
@@ -190,11 +182,13 @@ class UCR_DTW(BestMatchFinder):
     """
 
     def __init__(self, excl_zone_frac: float = 1, topK: int = 3, is_normalize: bool = True, r: float = 0.05):
+        # Передаем параметры в родительский класс
         super().__init__(excl_zone_frac, topK, is_normalize, r)
         """ 
         Constructor of class UCR_DTW
         """        
 
+        # Инициализируем дополнительные атрибуты
         self.not_pruned_num = 0
         self.lb_Kim_num = 0
         self.lb_KeoghQC_num = 0
@@ -216,15 +210,21 @@ class UCR_DTW(BestMatchFinder):
         """
 
         lb_Kim = 0
-
-        # Рассчитываем дистанцию Евклида для первой и последней точки последовательности
+        length = len(subs1)
+        
+        # Проверяем первую и последнюю точку
         lb_Kim += (subs1[0] - subs2[0])**2
         lb_Kim += (subs1[-1] - subs2[-1])**2
         
-        # Проверяем также середину последовательности
-        lb_Kim += (subs1[len(subs1) // 2] - subs2[len(subs2) // 2])**2
-    
+        # Проверка центральных точек на 10%, 50%, 90% длины
+        for frac in [0.1, 0.5, 0.9]:
+            idx = int(length * frac)
+            lb_Kim += (subs1[idx] - subs2[idx])**2
+
         return np.sqrt(lb_Kim)
+
+
+
 
 
 
@@ -256,6 +256,7 @@ class UCR_DTW(BestMatchFinder):
                 lb_Keogh += (subs1[i] - upper_bound[i]) ** 2
             elif subs1[i] < lower_bound[i]:
                 lb_Keogh += (subs1[i] - lower_bound[i]) ** 2
+
         
         return np.sqrt(lb_Keogh)
 
@@ -286,10 +287,6 @@ class UCR_DTW(BestMatchFinder):
         return statistics
 
 
-    def _LB_Keogh_EC(self, query: np.ndarray, subsequence: np.ndarray, r: float, n: int) -> float:
-        return self._LB_Keogh(subsequence, query, r, n)  # Передаем n
-
-
     def perform(self, ts_data: np.ndarray, query: np.ndarray) -> dict:
         """
         Поиск подпоследовательностей временного ряда, наиболее похожих на запрос, с использованием UCR-DTW.
@@ -306,84 +303,66 @@ class UCR_DTW(BestMatchFinder):
         dict
             Словарь, содержащий результаты выполнения алгоритма UCR-DTW.
         """
-        # Копируем запрос, чтобы не изменять исходный
         query = copy.deepcopy(query)
         
-        # Если требуется нормализация, нормализуем запрос
         if self.is_normalize:
             query = z_normalize(query)
 
-        n = len(ts_data)  # длина временного ряда
-        m = len(query)    # длина запроса
-
-        # Исключаемая зона (exclusion zone)
+        n = len(ts_data)
+        m = len(query)
+        
         excl_zone = self._calculate_excl_zone(m)
-
-        # Инициализация профиля дистанций
+        
         dist_profile = np.full(n - m + 1, np.inf)
-        bsf = np.inf
+        bsf = np.inf  # best-so-far distance
+        
         bestmatch = {
-            'indices': [],  # индексы совпадений
-            'distances': []  # дистанции совпадений
+            'indices': [], 
+            'distances': []
         }
 
-        # Перебираем все подпоследовательности временного ряда
         for i in range(n - m + 1):
-            subsequence = ts_data[i:i + m]  # выделяем подпоследовательность длины m
+            subsequence = ts_data[i:i + m]
 
-            # Если требуется нормализация, нормализуем подпоследовательность
             if self.is_normalize:
                 subsequence = z_normalize(subsequence)
 
-            # Применяем LB_Kim для быстрой оценки
+            # Применение LB_Kim
             lb_Kim_dist = self._LB_Kim(query, subsequence)
             if lb_Kim_dist >= bsf:
                 self.lb_Kim_num += 1
-                continue  # Пропускаем, если LB_Kim отсечен
+                continue
 
-            # Проверяем LB_Keogh
+            # Применение LB_Keogh
             lb_Keogh_dist = self._LB_Keogh(query, subsequence, self.r, n)
             if lb_Keogh_dist >= bsf:
                 self.lb_KeoghQC_num += 1
-                continue  # Пропускаем, если LB_Keogh отсечен
+                continue
 
-            # Проверяем LB_KeoghEC
+            # Применение LB_Keogh_EC
             lb_Keogh_EC_dist = self._LB_Keogh_EC(query, subsequence, self.r, n)
             if lb_Keogh_EC_dist >= bsf:
                 self.lb_KeoghCQ_num += 1
-                continue  # Пропускаем, если LB_KeoghEC отсечен
+                continue
 
-            # Вычисляем DTW
+            # Рассчитываем полное DTW расстояние
             dist = DTW_distance(query, subsequence)
 
-            # Проверка на inf
             if np.isinf(dist):
                 print(f"Distance calculation resulted in inf for subsequence starting at index {i}. Ignoring this subsequence.")
-                continue  # Пропускаем, если расстояние равно inf
+                continue
 
-            # Если расстояние меньше текущего лучшего значения, обновляем
             if dist < bsf:
-                dist_profile[i] = dist
                 bestmatch['indices'].append(i)
                 bestmatch['distances'].append(dist)
 
-                # Если найдено topK совпадений, обновляем порог
                 if len(bestmatch['indices']) >= self.topK:
                     bsf = max(bestmatch['distances'])
-                    bestmatch = topK_match(dist_profile, self.topK, bsf)
+                    sorted_indices = np.argsort(bestmatch['distances'])[:self.topK]
+                    bestmatch['indices'] = [bestmatch['indices'][idx] for idx in sorted_indices]
+                    bestmatch['distances'] = [bestmatch['distances'][idx] for idx in sorted_indices]
 
-        # Подсчитываем количество неотброшенных последовательностей
         self.not_pruned_num = n - m + 1 - (self.lb_Kim_num + self.lb_KeoghQC_num + self.lb_KeoghCQ_num)
 
         return bestmatch
-
-
-
-
-
-
-
-
-
-
 
