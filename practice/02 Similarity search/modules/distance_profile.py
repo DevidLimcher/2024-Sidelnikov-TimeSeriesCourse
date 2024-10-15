@@ -1,7 +1,7 @@
 import numpy as np
 
-from modules.my_utils import z_normalize
-from modules.metrics import ED_distance, norm_ED_distance
+from .utils import z_normalize
+from .metrics import ED_distance, norm_ED_distance
 
 
 def brute_force(ts: np.ndarray, query: np.ndarray, is_normalize: bool = True) -> np.ndarray:
@@ -19,18 +19,21 @@ def brute_force(ts: np.ndarray, query: np.ndarray, is_normalize: bool = True) ->
     dist_profile: distance profile between query and time series
     """
 
-    n = len(ts)  # Длина временного ряда
-    m = len(query)  # Длина запроса
-    dist_profile = np.zeros(n - m + 1)  # Инициализация массива для профиля расстояний
-    
-    if is_normalize:  # Если требуется нормализация
-        query = z_normalize(query)  # Нормализовать запрос
-    
-    for i in range(n - m + 1):  # Проход по всем подпоследовательностям временного ряда
-        subseq = ts[i:i + m]  # Выделение подпоследовательности временного ряда
-        if is_normalize:  # Если требуется нормализация
-            subseq = z_normalize(subseq)  # Нормализовать подпоследовательность
-        
-        dist_profile[i] = np.linalg.norm(query - subseq)  # Вычисление евклидова расстояния между запросом и подпоследовательностью
-    
-    return dist_profile  # Возврат профиля расстояний
+    n = len(ts)
+    m = len(query)
+    N = n - m + 1
+
+    dist_profile = np.zeros(shape=(N,))
+
+    if is_normalize:
+        query = (query - np.mean(query)) / np.std(query)
+
+    for i in range(N):
+        subsequence = ts[i:i + m]
+
+        if is_normalize:
+            subsequence = (subsequence - np.mean(subsequence)) / np.std(subsequence)
+
+        dist_profile[i] = ED_distance(subsequence, query)
+
+    return dist_profile

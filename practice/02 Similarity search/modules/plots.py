@@ -46,12 +46,12 @@ def plot_ts_set(ts_set: np.ndarray, title: str = 'Input Time Series Set') -> Non
                      tickwidth=2)
     fig.update_layout(title=title,
                       title_font=dict(size=24, color='black'),
-                      plot_bgcolor='rgba(0,0,0,0)',
-                      paper_bgcolor='rgba(0,0,0,0)',
+                      plot_bgcolor='white',
+                      paper_bgcolor='white',
                       legend=dict(font=dict(size=20, color='black'))
                       )
 
-    fig.show(renderer="notebook")
+    fig.show(renderer="colab")
 
 
 def mplot2d(x: np.ndarray, y: np.ndarray, plot_title: str = None, x_title: str = None, y_title: str = None, trace_titles: np.ndarray = None) -> None:
@@ -69,7 +69,8 @@ def mplot2d(x: np.ndarray, y: np.ndarray, plot_title: str = None, x_title: str =
     """
 
     fig = go.Figure()
-
+    if len(y.shape) == 1:
+        y = y[np.newaxis, :]
     for i in range(y.shape[0]):
         fig.add_trace(go.Scatter(x=x, y=y[i], line=dict(width=3), name=trace_titles[i]))
 
@@ -160,44 +161,70 @@ def plot_bestmatch_results(ts: np.ndarray, query: np.ndarray, bestmatch_results:
     bestmatch_results: output data found by the best match algorithm
     """
 
-    query_len = query.shape[0]  # Длина запроса
-    ts_len = ts.shape[0]  # Длина временного ряда
+    query_len = query.shape[0]
+    ts_len = ts.shape[0]
 
-    # Создание фигуры с двумя подграфиками: один для запроса, другой для временного ряда
-    fig = make_subplots(rows=1, cols=2, column_widths=[0.1, 0.9], subplot_titles=("Запрос", "Временной ряд"), horizontal_spacing=0.04)
+    # Создаем график с двумя подграфиками (Query и Time Series)
+    fig = make_subplots(
+        rows=1, cols=2,
+        column_widths=[0.1, 0.9],
+        subplot_titles=("Query", "Time Series"),
+        horizontal_spacing=0.04
+    )
 
-    # Отрисовка графика запроса
-    fig.add_trace(go.Scatter(x=np.arange(query_len), y=query, line=dict(color=px.colors.qualitative.Plotly[1])),
-                  row=1, col=1)
+    # Отображаем запрос на первом подграфике
+    fig.add_trace(go.Scatter(
+        x=np.arange(query_len),
+        y=query,
+        line=dict(color=px.colors.qualitative.Plotly[1])),
+        row=1, col=1
+    )
 
-    # Отрисовка графика временного ряда
-    fig.add_trace(go.Scatter(x=np.arange(ts_len), y=ts, line=dict(color=px.colors.qualitative.Plotly[0])),
-                  row=1, col=2)
+    # Отображаем временной ряд на втором подграфике
+    fig.add_trace(go.Scatter(
+        x=np.arange(ts_len),
+        y=ts,
+        line=dict(color=px.colors.qualitative.Plotly[0])),
+        row=1, col=2
+    )
 
-    # Получение индексов наилучших совпадений из результатов поиска
-    indices = bestmatch_results['indices']  # Достаем индексы совпадений из словаря
+    # Отображаем лучшие совпадения
+    for idx in bestmatch_results.keys():
+        subsequence = ts[idx:idx + query_len]
+        fig.add_trace(go.Scatter(
+            x=np.arange(idx, idx + query_len),
+            y=subsequence,
+            line=dict(color=px.colors.qualitative.Plotly[1]),
+            name=f'Best Match at {idx}'
+        ), row=1, col=2)
 
-    # Подсветка topK совпадающих подпоследовательностей во временном ряду
-    for idx in indices:
-        fig.add_trace(go.Scatter(x=np.arange(idx, idx + query_len), y=ts[idx:idx + query_len],
-                                 line=dict(color=px.colors.qualitative.Plotly[1], width=2)),
-                      row=1, col=2)
-
-    # Обновление параметров аннотаций для улучшения визуализации
+    # Настройки для осей
     fig.update_annotations(font=dict(size=24, color='black'))
 
-    # Настройки осей X
-    fig.update_xaxes(showgrid=False, linecolor='#000', ticks="outside", tickfont=dict(size=18, color='black'), linewidth=1, tickwidth=1, mirror=True)
+    fig.update_xaxes(showgrid=False,
+                     linecolor='#000',
+                     ticks="outside",
+                     tickfont=dict(size=18, color='black'),
+                     linewidth=1,
+                     tickwidth=1,
+                     mirror=True)
+    fig.update_yaxes(showgrid=False,
+                     linecolor='#000',
+                     ticks="outside",
+                     tickfont=dict(size=18, color='black'),
+                     zeroline=False,
+                     linewidth=1,
+                     tickwidth=1,
+                     mirror=True)
 
-    # Настройки осей Y
-    fig.update_yaxes(showgrid=False, linecolor='#000', ticks="outside", tickfont=dict(size=18, color='black'), zeroline=False, linewidth=1, tickwidth=1, mirror=True)
+    # Общие настройки оформления
+    fig.update_layout(plot_bgcolor="white",
+                      paper_bgcolor='white',
+                      showlegend=False,
+                      title_x=0.5)
 
-    # Общие настройки дизайна графика
-    fig.update_layout(plot_bgcolor="white", paper_bgcolor='white', showlegend=False, title_x=0.5)
-
-    # Отображение графика
+    # Показать график
     fig.show(renderer="notebook")
-
 
 
 def pie_chart(labels: np.ndarray, values: np.ndarray, plot_title='Pie chart') -> None:
@@ -220,4 +247,4 @@ def pie_chart(labels: np.ndarray, values: np.ndarray, plot_title='Pie chart') ->
                       height=500
                       )
 
-    fig.show(renderer="notebook")
+    fig.show(renderer="colab")

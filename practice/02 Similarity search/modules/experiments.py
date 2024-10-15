@@ -4,9 +4,9 @@ import mass_ts as mts
 import timeit
 from IPython.display import display
 
-from modules.distance_profile import brute_force
-from modules.bestmatch import NaiveBestMatchFinder, UCR_DTW
-from modules.plots import mplot2d
+from .distance_profile import brute_force
+from .bestmatch import NaiveBestMatchFinder, UCR_DTW
+from .plots import mplot2d
 
 
 def _get_param_values(exp_params: dict, param: str) -> list:
@@ -57,13 +57,14 @@ def _run_experiment_dist_profile(algorithm: str, data: dict, exp_params: dict, a
             match algorithm:
                 case 'brute_force':
                     runtime_code = f"brute_force(data['ts']['{n}'], data['query']['{m}'])"
-                case 'mass3': 
-                    runtime_code = f"mts.mass3(data['ts']['{n}'], data['query']['{m}'], alg_params['segment_len'])"
+                case 'mass3':
+                    runtime_code = (f"mts.mass3(data['ts']['{n}'], data['query']['{m}'], alg_params['mass3']["
+                                    f"'segment_len'])")
                 case 'mass' | 'mass2':
                     runtime_code = f"mts.{algorithm}(data['ts']['{n}'], data['query']['{m}'])"    
             try:
                 time = timeit.timeit(stmt=runtime_code, number=1, globals={**globals(), **locals()})
-            except:
+            except Exception as e:
                 time = np.nan
 
             times.append(time)
@@ -99,10 +100,10 @@ def _run_experiment_best_match(algorithm: str, data: dict, exp_params: dict, alg
             for m in m_list:
                 match algorithm:
                     case 'naive':
-                        naive_bestmatch_model = NaiveBestMatchFinder(alg_params['excl_zone_frac'], alg_params['topK'], alg_params['is_normalize'], r)
+                        naive_bestmatch_model = NaiveBestMatchFinder(alg_params['excl_zone_frac'], alg_params['topK'], alg_params['normalize'], r)
                         runtime_code = f"naive_bestmatch_model.perform(data['ts']['{n}'], data['query']['{m}'])"
                     case 'ucr-dtw':
-                        ucr_dtw_bestmatch_model = UCR_DTW(alg_params['excl_zone_frac'], alg_params['topK'], alg_params['is_normalize'], r)
+                        ucr_dtw_bestmatch_model = UCR_DTW(alg_params['excl_zone_frac'], alg_params['topK'], alg_params['normalize'], r)
                         runtime_code = f"ucr_dtw_bestmatch_model.perform(data['ts']['{n}'], data['query']['{m}'])"
 
                 try:
@@ -144,30 +145,42 @@ def run_experiment(algorithm: str, task: str, data: dict, exp_params: dict, alg_
     return times
 
 
-def visualize_plot_times(times: np.ndarray, comparison_param: np.ndarray, exp_params: dict) -> None:
+
+def visualize_plot_times(times_list: list, comparison_param: np.ndarray, exp_params: dict) -> None:
     """
-    Visualize plot with execution times
+    Visualize plot with execution times for multiple algorithms
     
     Parameters
     ----------
-    times: execution times of algorithms
-    comparison_param: name of comparison parameter
+    times_list: list of execution times for each algorithm
+    comparison_param: names of algorithms (comparison parameter)
     exp_params: experiment parameters
     """
 
-    if ('n' in exp_params['varying'].keys()):
+    if 'n' in exp_params['varying'].keys():
         varying_param_name = 'Time series length'   
         varying_param_value = exp_params['varying']['n']
     else:
         varying_param_name = 'Query length'
         varying_param_value = exp_params['varying']['m']
 
-    plot_title = 'Runtime depending on ' + varying_param_name 
+    plot_title = 'Runtime depending on ' + varying_param_name
     trace_titles = comparison_param
     x_axis_title = varying_param_name
     y_axis_title = 'Runtime, s'
     
-    mplot2d(np.array(varying_param_value), times, plot_title, x_axis_title, y_axis_title, trace_titles)
+    # Convert list of times to numpy array for easier manipulation
+    times_array = np.array(times_list)
+    
+    # Ensure times_array has correct shape: [number_of_algorithms, number_of_n_values]
+    if times_array.shape[0] != len(trace_titles):
+        print(f"Error: Number of algorithms ({len(trace_titles)}) does not match number of time series ({times_array.shape[0]}).")
+        return
+
+    # Now call mplot2d once, with all times and trace titles
+    mplot2d(np.array(varying_param_value), times_array, plot_title, x_axis_title, y_axis_title, trace_titles)
+
+
 
 
 def calculate_speedup(base_algorithm_times: np.ndarray, improved_algorithms_times: np.ndarray) -> np.ndarray:
